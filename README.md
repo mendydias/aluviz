@@ -31,9 +31,9 @@ fundamental computer architecture concepts through hands-on simulation.
 - Step-by-step debugging capabilities
 - Register and memory state tracking
 
-## Technical Requirements
+## Technical Stack
 
-[To be determined]
+- 
 
 ## Installation
 
