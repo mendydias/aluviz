@@ -13,65 +13,48 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
-pub mod memory {
-
-    pub struct BasicMemory {
-        cell: usize,
-        columns: usize,
-    }
-
-    pub struct MemCapacity {
-        cell: usize,
-        columns: usize,
-    }
-
-    pub enum Customizer {
-        MemCustomizer,
-    }
-
-    pub trait MemCustomizer {
-        fn default_mem_capacity() -> MemCapacity;
-    }
-
-    impl BasicMemory {
-        pub fn new(mem_cap: MemCapacity) -> Self {
-            let cell = mem_cap.cell;
-            let columns = mem_cap.columns;
-            BasicMemory { cell, columns }
-        }
-
-        pub fn cap(&self) -> usize {
-            self.cell * self.columns
-        }
-    }
-
-    impl MemCustomizer for Customizer {
-        fn default_mem_capacity() -> MemCapacity {
-            MemCapacity {
-                cell: 8,
-                columns: 64,
-            }
-        }
-    }
-}
+mod memory;
 
 #[cfg(test)]
 mod tests {
-    use super::memory::{BasicMemory, Customizer};
+    use crate::memory::{BasicMemory, CustomizeMemoryInit, MemCustomizer};
+
+    fn setup_mem() -> BasicMemory {
+        BasicMemory::new(MemCustomizer::default_mem_capacity())
+    }
 
     #[test]
     fn test_memory_init() {
-        let mem_customizer = Customizer::MemCustomizer();
-        let mem = BasicMemory::new(Customizer::default_mem_capacity());
-        let default_cap: usize = 64 * 8;
+        let mem = setup_mem();
+        let default_cap: usize = 32 * 8;
         assert_eq!(mem.cap(), default_cap);
     }
 
     #[test]
     fn test_memory_bin_setup() {
-        let mem = memory::BasicMemory::new(memory::default_mem_capacity());
+        let mut mem = setup_mem();
         let bin_count = 4;
-        let bin_width = 128;
-        mem.allocate_bins()
+        let bin_width = 64;
+        mem.allocate_bins(4, MemCustomizer::DistributeBinsEvenly);
+        // test bin count
+        assert_eq!(mem.get_bin_count(), bin_count);
+        // test bin interval capacity
+        for i in 0..bin_count {
+            assert_eq!(mem.get_bin_width(), bin_width);
+        }
+    }
+
+    #[test]
+    fn test_get_bins() {
+        let mut mem = setup_mem();
+        let bin_count = 4;
+        let bin_width = 64;
+        mem.allocate_bins(bin_count, MemCustomizer::DistributeBinsEvenly);
+        let bins = mem.get_bins();
+        assert_eq!(bins.len(), bin_count);
+        for i in 0..bins.len() {
+            assert_eq!(bins[i].width, bin_width);
+            assert_eq!(bins[i].address, 0 + mem.get_cell_width() * i);
+        }
     }
 }
