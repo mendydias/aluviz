@@ -52,7 +52,7 @@ mod tests {
         assert_eq!(bins.len(), bin_count);
         for i in 0..bins.len() {
             assert_eq!(bins[i].get_width(), bin_width);
-            assert_eq!(bins[i].get_address(), (mem.get_cell_width() * i) as u8);
+            assert_eq!(bins[i].get_address(), mem.get_cell_width() * i);
         }
     }
 }

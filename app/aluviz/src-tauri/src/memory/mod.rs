@@ -2,6 +2,7 @@ mod utils;
 
 use crate::memory::utils::ByteSegmentTree;
 
+#[derive(Debug)]
 pub struct BasicMemory {
     cell_size: usize,
     rows: usize,
@@ -10,11 +11,13 @@ pub struct BasicMemory {
     memory: utils::ByteSegmentTree,
 }
 
+#[derive(Debug)]
 pub struct Bin {
     width: usize,
-    address: u8,
+    address: usize,
 }
 
+#[derive(Debug)]
 pub enum MemCustomizer {
     DistributeBinsEvenly,
     // DistributeBinsRandomly,
@@ -27,18 +30,12 @@ pub trait CustomizeMemoryInit {
 
 impl BasicMemory {
     pub fn new((cell_size, rows): (usize, usize)) -> Self {
-        let mut intervals: Vec<u8> = Vec::new();
-        let rows8 = rows as u8;
-        for i in 0..rows8 {
-            intervals.push(i);
-        }
-
         BasicMemory {
             cell_size,
             rows,
             bin_count: 0,
             spread_factor: MemCustomizer::DistributeBinsEvenly,
-            memory: ByteSegmentTree::new(intervals),
+            memory: ByteSegmentTree::new(rows),
         }
     }
 
@@ -67,19 +64,14 @@ impl BasicMemory {
         match self.spread_factor {
             MemCustomizer::DistributeBinsEvenly => {
                 let mut bins: Vec<Bin> = Vec::new();
-                let b_width: u8 = self.rows as u8 / self.bin_count as u8;
-                let mut start: u8 = 0;
-                for i in 0..self.bin_count as u8 {
-                    bins.push(Bin {
-                        address: i * b_width,
-                        width: (self.memory.memsize(
-                            1,
-                            0,
-                            self.rows - 1,
-                            start as usize,
-                            (start + b_width) as usize,
-                        ) * b_width) as usize,
-                    });
+                let b_width = self.rows / self.bin_count;
+                let mut start = 0;
+                for i in 0..self.bin_count {
+                    let address = i * b_width;
+                    let l = start;
+                    let r = start + b_width - 1;
+                    let width = self.memory.memsize(1, 0, self.rows - 1, l, r);
+                    bins.push(Bin { address, width });
                     start += b_width;
                 }
                 bins
@@ -93,7 +85,7 @@ impl Bin {
         self.width
     }
 
-    pub fn get_address(&self) -> u8 {
+    pub fn get_address(&self) -> usize {
         self.address
     }
 }
