@@ -39,9 +39,7 @@ mod tests {
         // test bin count
         assert_eq!(mem.get_bin_count(), bin_count);
         // test bin interval capacity
-        for i in 0..bin_count {
-            assert_eq!(mem.get_bin_width(), bin_width);
-        }
+        assert_eq!(mem.get_bin_width(), bin_width);
     }
 
     #[test]
@@ -53,8 +51,8 @@ mod tests {
         let bins = mem.get_bins();
         assert_eq!(bins.len(), bin_count);
         for i in 0..bins.len() {
-            assert_eq!(bins[i].width, bin_width);
-            assert_eq!(bins[i].address, 0 + mem.get_cell_width() * i);
+            assert_eq!(bins[i].get_width(), bin_width);
+            assert_eq!(bins[i].get_address(), (mem.get_cell_width() * i) as u8);
         }
     }
 }
