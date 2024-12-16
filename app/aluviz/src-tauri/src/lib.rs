@@ -46,21 +46,17 @@ mod tests {
     fn test_memory_init() {
         init_log();
         let mem = setup_mem();
-        debug!("Current memory model inside test_memory_init: {:?}", mem);
         let default_cap: usize = 32 * 8;
         assert_eq!(mem.cap(), default_cap);
     }
 
     #[test]
     fn test_memory_bin_setup() {
+        init_log();
         let mut mem = setup_mem();
         let bin_count = 4;
         let bin_width = 64;
         mem.allocate_bins(4, MemCustomizer::DistributeBinsEvenly);
-        debug!(
-            "Current memory model inside test_memory_bin_setup: {:?}",
-            mem
-        );
         // test bin count
         assert_eq!(mem.get_bin_count(), bin_count);
         // test bin interval capacity
@@ -69,11 +65,11 @@ mod tests {
 
     #[test]
     fn test_get_bins() {
+        init_log();
         let mut mem = setup_mem();
         let bin_count = 4;
         let bin_width = 64;
         mem.allocate_bins(bin_count, MemCustomizer::DistributeBinsEvenly);
-        debug!("Current memory model insdie test_get_bins: {:?}", mem);
         let bins = mem.get_bins();
         assert_eq!(bins.len(), bin_count);
         for (i, bin) in bins.iter().enumerate() {
@@ -84,6 +80,16 @@ mod tests {
 
     #[test]
     fn test_allocate_cells() {
-        todo!();
+        init_log();
+        let mut mem = setup_mem();
+        let value: u8 = 10;
+        mem.mem_alloc(vec![value]);
+        let alloc_address: usize = 0;
+        let alloc_width: usize = 8;
+        let first_bin = mem.get_bins()[0];
+        let stored_value = first_bin.loc(alloc_address);
+        assert_eq!(first_bin.get_address(), alloc_address);
+        assert_eq!(stored_value, value);
+        assert_eq!(first_bin.get_width(), alloc_width);
     }
 }
