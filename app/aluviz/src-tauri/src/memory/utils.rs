@@ -8,11 +8,11 @@ pub struct ByteSegmentTree {
 }
 
 impl ByteSegmentTree {
-    pub fn new(intervals: usize) -> Self {
-        let store = build_tree_from(intervals);
+    pub fn new(rows: usize) -> Self {
+        let store = build_tree_from(rows);
         ByteSegmentTree {
             start: 0,
-            end: intervals - 1,
+            end: rows - 1,
             store,
         }
     }
@@ -30,9 +30,9 @@ impl ByteSegmentTree {
     }
 }
 
-fn build_tree_from(intervals: usize) -> Vec<usize> {
-    let mut store: Vec<usize> = vec![0; intervals * 4];
-    build_tree_as_binheap(1, 0, intervals - 1, &mut store);
+fn build_tree_from(rows: usize) -> Vec<usize> {
+    let mut store: Vec<usize> = vec![0; rows * 4];
+    build_tree_as_binheap(1, 0, rows - 1, &mut store);
     store
 }
 

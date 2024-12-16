@@ -17,15 +17,36 @@ mod memory;
 
 #[cfg(test)]
 mod tests {
+    use std::{fs::File, sync::Once};
+
+    use log::debug;
+
+    use simplelog::{Config, LevelFilter, WriteLogger};
+
     use crate::memory::{BasicMemory, CustomizeMemoryInit, MemCustomizer};
+
+    static INIT_LOGGER_ONCE: Once = Once::new();
 
     fn setup_mem() -> BasicMemory {
         BasicMemory::new(MemCustomizer::default_mem_capacity())
     }
 
+    fn init_log() {
+        INIT_LOGGER_ONCE.call_once(|| {
+            WriteLogger::init(
+                LevelFilter::Debug,
+                Config::default(),
+                File::create("./logs/tests.log").unwrap(),
+            )
+            .unwrap();
+        });
+    }
+
     #[test]
     fn test_memory_init() {
+        init_log();
         let mem = setup_mem();
+        debug!("Current memory model inside test_memory_init: {:?}", mem);
         let default_cap: usize = 32 * 8;
         assert_eq!(mem.cap(), default_cap);
     }
@@ -36,6 +57,10 @@ mod tests {
         let bin_count = 4;
         let bin_width = 64;
         mem.allocate_bins(4, MemCustomizer::DistributeBinsEvenly);
+        debug!(
+            "Current memory model inside test_memory_bin_setup: {:?}",
+            mem
+        );
         // test bin count
         assert_eq!(mem.get_bin_count(), bin_count);
         // test bin interval capacity
@@ -48,11 +73,17 @@ mod tests {
         let bin_count = 4;
         let bin_width = 64;
         mem.allocate_bins(bin_count, MemCustomizer::DistributeBinsEvenly);
+        debug!("Current memory model insdie test_get_bins: {:?}", mem);
         let bins = mem.get_bins();
         assert_eq!(bins.len(), bin_count);
-        for i in 0..bins.len() {
-            assert_eq!(bins[i].get_width(), bin_width);
-            assert_eq!(bins[i].get_address(), mem.get_cell_width() * i);
+        for (i, bin) in bins.iter().enumerate() {
+            assert_eq!(bin.get_width(), bin_width);
+            assert_eq!(bin.get_address(), mem.get_cell_width() * i);
         }
+    }
+
+    #[test]
+    fn test_allocate_cells() {
+        todo!();
     }
 }
