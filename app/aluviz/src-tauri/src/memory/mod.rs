@@ -1,7 +1,29 @@
 mod utils;
 
+use std::fmt::Display;
+
+use serde::de::Error;
+
 use crate::memory::utils::ByteSegmentTree;
 
+// Common error type to gracefully handle out of bounds errors
+pub type Result<T> = std::result::Result<T, OutOfBoundsError>;
+
+#[derive(Debug, Clone)]
+pub struct OutOfBoundsError;
+
+impl Display for OutOfBoundsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Request memory range is out of bounds for the simulation"
+        )
+    }
+}
+
+// The most basic type of memory. All it does is represent memory as a contiguous block of memory
+// starting from address 0. Memory allocated to this model will write elements sequentially
+// starting from address 0.
 #[derive(Debug)]
 pub struct BasicMemory {
     pub cell_size: usize,
@@ -9,6 +31,8 @@ pub struct BasicMemory {
     tree: utils::ByteSegmentTree,
 }
 
+// Represents memory with an additional abstraction of partitioning.
+// Can reason about memory in terms of bins.
 #[derive(Debug)]
 pub struct PartitionedMemory {
     memory: BasicMemory,
@@ -36,7 +60,7 @@ pub trait CustomizeMemoryInit {
 pub trait Memory {
     fn capacity(&self) -> usize;
     fn get_cell_width(&self) -> usize;
-    fn mem_alloc(&self, elems: Vec<u8>);
+    fn mem_alloc(&mut self, elems: Vec<u8>) -> Result<usize>;
 }
 
 impl BasicMemory {
@@ -58,7 +82,14 @@ impl Memory for BasicMemory {
         self.cell_size
     }
 
-    fn mem_alloc(&self, elems: Vec<u8>) {}
+    fn mem_alloc(&mut self, elems: Vec<u8>) -> Result<usize> {
+        if elems.len() < self.rows {
+            let updated: usize = self.tree.update_from(elems, 0);
+            Ok(updated * self.cell_size)
+        } else {
+            Result::Err(OutOfBoundsError)
+        }
+    }
 }
 
 impl PartitionedMemory {
@@ -106,6 +137,10 @@ impl Memory for PartitionedMemory {
 
     fn get_cell_width(&self) -> usize {
         self.memory.cell_size
+    }
+
+    fn mem_alloc(&mut self, elems: Vec<u8>) -> Result<usize> {
+        self.memory.mem_alloc(elems)
     }
 }
 

@@ -89,6 +89,7 @@ mod tests {
         init_log();
         let mut mem = setup_basic_mem();
         let value: u8 = 10;
+        // test if mem_alloc is successful
         mem.mem_alloc(vec![value]);
         let alloc_address: usize = 0;
         let alloc_width: usize = 8;
