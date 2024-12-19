@@ -19,6 +19,7 @@ mod memory;
 mod tests {
     use std::{fs::File, sync::Once};
 
+    use log::debug;
     use simplelog::{Config, LevelFilter, WriteLogger};
 
     use crate::memory::{
@@ -50,6 +51,7 @@ mod tests {
     fn test_memory_init() {
         init_log();
         let mem = setup_basic_mem();
+        let mem = PartitionedMemory::new(mem);
         let default_cap: usize = 32 * 8;
         assert_eq!(mem.capacity(), default_cap);
     }
@@ -85,18 +87,29 @@ mod tests {
     }
 
     #[test]
-    fn test_allocate_cells() {
+    fn test_allocate_cells_default() {
         init_log();
-        let mut mem = setup_basic_mem();
+        let mem = setup_basic_mem();
         let value: u8 = 10;
         // test if mem_alloc is successful
-        mem.mem_alloc(vec![value]);
+        let mut mem = PartitionedMemory::new(mem);
+        let result = mem.mem_alloc(vec![value]);
+        assert!(result.is_ok());
         let alloc_address: usize = 0;
-        let alloc_width: usize = 8;
-        let first_bin = mem.get_bins()[0];
-        let stored_value = first_bin.loc(alloc_address);
-        assert_eq!(first_bin.get_address(), alloc_address);
+        let stored_value = mem.loc(alloc_address);
         assert_eq!(stored_value, value);
-        assert_eq!(first_bin.get_width(), alloc_width);
+    }
+
+    #[test]
+    fn test_default_bin_allocation() {
+        init_log();
+        let mem = setup_basic_mem();
+        let mem = PartitionedMemory::new(mem);
+        let alloc_address = 0;
+        let alloc_width = mem.capacity();
+        let bins = mem.get_bins();
+        assert_eq!(bins.len(), 1);
+        assert_eq!(bins[0].address, alloc_address);
+        assert_eq!(bins[0].width, alloc_width);
     }
 }

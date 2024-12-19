@@ -50,12 +50,27 @@ impl ByteSegmentTree {
     pub fn update_from(&mut self, elems: Vec<u8>, pos: usize) -> usize {
         let mut mem_changed: usize = 0;
         for (index, item) in elems.iter().enumerate() {
-            let result = self.update(1, self.start, self.end, pos + index, item.clone());
+            let result = self.update(1, self.start, self.end, pos + index, item.to_owned());
             if let Ok(width) = result {
                 mem_changed += width;
             }
         }
         mem_changed
+    }
+
+    pub fn get(&self, v: usize, tl: usize, tr: usize, pos: usize) -> u8 {
+        if tl == tr {
+            return match &self.store[v] {
+                Block::Full(d) => d.contents[0],
+                Block::Empty => 0,
+            };
+        }
+        let tm = (tl + tr) / 2;
+        if pos <= tm {
+            self.get(v * 2, tl, tm, pos)
+        } else {
+            self.get(v * 2 + 1, tm + 1, tr, pos)
+        }
     }
 
     fn update(
@@ -86,14 +101,13 @@ impl ByteSegmentTree {
             Ok(8)
         } else {
             let tm = (tl + tr) / 2;
-            let result: Result<usize, OutOfBoundsError>;
-            if pos <= tm {
-                result = self.update(v * 2, tl, tm, pos, val);
+            let result = if pos <= tm {
+                self.update(v * 2, tl, tm, pos, val)
             } else {
-                result = self.update(v * 2 + 1, tm + 1, tr, pos, val);
-            }
+                self.update(v * 2 + 1, tm + 1, tr, pos, val)
+            };
             Self::combine(&self.store[v * 2], &self.store[v * 2 + 1]);
-            return result;
+            result
         }
     }
 
@@ -130,10 +144,10 @@ impl ByteSegmentTree {
             (Block::Full(d1), Block::Full(d2)) => {
                 let mut contents: Vec<u8> = Vec::new();
                 for v in d1.contents.iter() {
-                    contents.push(v.clone());
+                    contents.push(v.to_owned());
                 }
                 for v in d2.contents.iter() {
-                    contents.push(v.clone());
+                    contents.push(v.to_owned());
                 }
 
                 Block::Full(BlockMetadata {

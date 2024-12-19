@@ -61,6 +61,7 @@ pub trait Memory {
     fn capacity(&self) -> usize;
     fn get_cell_width(&self) -> usize;
     fn mem_alloc(&mut self, elems: Vec<u8>) -> Result<usize>;
+    fn loc(&self, pos: usize) -> u8;
 }
 
 impl BasicMemory {
@@ -89,6 +90,10 @@ impl Memory for BasicMemory {
         } else {
             Result::Err(OutOfBoundsError)
         }
+    }
+
+    fn loc(&self, pos: usize) -> u8 {
+        self.tree.get(1, 0, self.rows - 1, pos)
     }
 }
 
@@ -141,6 +146,10 @@ impl Memory for PartitionedMemory {
 
     fn mem_alloc(&mut self, elems: Vec<u8>) -> Result<usize> {
         self.memory.mem_alloc(elems)
+    }
+
+    fn loc(&self, pos: usize) -> u8 {
+        self.memory.loc(pos)
     }
 }
 
