@@ -1,4 +1,4 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+// Learn more about Tauri commands at https://tauri.app/develop/calling-rust
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -23,7 +23,8 @@ mod tests {
     use simplelog::{Config, LevelFilter, WriteLogger};
 
     use crate::memory::{
-        BasicMemory, CustomizeMemoryInit, MemCustomizer, Memory, PartitionedMemory,
+        self, BasicMemory, CustomizeMemoryInit, MemCustomizer, Memory, OutOfBoundsError,
+        PartitionedMemory,
     };
 
     static INIT_LOGGER_ONCE: Once = Once::new();
@@ -111,5 +112,18 @@ mod tests {
         assert_eq!(bins.len(), 1);
         assert_eq!(bins[0].address, alloc_address);
         assert_eq!(bins[0].width, alloc_width);
+    }
+
+    #[test]
+    fn test_allocate_more_bins_than_rows() -> Result<(), OutOfBoundsError> {
+        init_log();
+        let mem = setup_basic_mem();
+        let mut mem = PartitionedMemory::new(mem);
+        let result = mem.allocate_bins(40, MemCustomizer::DistributeBinsEvenly);
+        if result.is_ok() {
+            Err(OutOfBoundsError)
+        } else {
+            Ok(())
+        }
     }
 }

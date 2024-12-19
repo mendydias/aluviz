@@ -106,9 +106,13 @@ impl PartitionedMemory {
         }
     }
 
-    pub fn allocate_bins(&mut self, num: usize, spread_factor: MemCustomizer) {
+    pub fn allocate_bins(&mut self, num: usize, spread_factor: MemCustomizer) -> Result<()> {
+        if num >= self.memory.rows {
+            return Err(OutOfBoundsError);
+        }
         self.bin_count = num;
         self.spread_factor = spread_factor;
+        Ok(())
     }
 
     pub fn get_bin_width(&self) -> usize {
