@@ -1,13 +1,8 @@
-mod utils;
+mod tree;
 
 use std::fmt::Display;
 
-use serde::de::Error;
-
-use crate::memory::utils::ByteSegmentTree;
-
-// Common error type to gracefully handle out of bounds errors
-pub type Result<T> = std::result::Result<T, OutOfBoundsError>;
+use crate::memory::tree::ByteSegmentTree;
 
 #[derive(Debug, Clone)]
 pub struct OutOfBoundsError;
@@ -21,52 +16,27 @@ impl Display for OutOfBoundsError {
     }
 }
 
-// The most basic type of memory. All it does is represent memory as a contiguous block of memory
-// starting from address 0. Memory allocated to this model will write elements sequentially
-// starting from address 0.
-#[derive(Debug)]
-pub struct BasicMemory {
-    pub cell_size: usize,
-    rows: usize,
-    tree: utils::ByteSegmentTree,
-}
-
-// Represents memory with an additional abstraction of partitioning.
-// Can reason about memory in terms of bins.
-#[derive(Debug)]
-pub struct PartitionedMemory {
-    memory: BasicMemory,
-    pub bin_count: usize,
-    spread_factor: MemCustomizer,
-}
-
-#[derive(Debug)]
-pub struct Bin {
-    pub width: usize,
-    pub address: usize,
-}
-
-#[derive(Debug)]
-pub enum MemCustomizer {
-    DistributeBinsEvenly,
-    // DistributeBinsRandomly,
-}
-
-pub trait CustomizeMemoryInit {
-    fn default_mem_capacity() -> (usize, usize);
-    // TODO: More config methods through a yaml config
-}
-
+// This interface defines all the operations possible on a memory model data type.
 pub trait Memory {
+    // This method should return the total capacity the model can represent in kb
     fn capacity(&self) -> usize;
     fn get_cell_width(&self) -> usize;
-    fn mem_alloc(&mut self, elems: Vec<u8>) -> Result<usize>;
+    fn mem_alloc(&mut self, elems: Vec<u8>) -> std::result::Result<usize, OutOfBoundsError>;
     fn loc(&self, pos: usize) -> u8;
 }
 
-impl BasicMemory {
+// Represent single user memory schema. This means that memory is one continguous blob and its
+// addresses starts from 0.
+#[derive(Debug)]
+pub struct SingleSchemeMemory {
+    pub cell_size: usize,
+    rows: usize,
+    tree: tree::ByteSegmentTree,
+}
+
+impl SingleSchemeMemory {
     pub fn new((cell_size, rows): (usize, usize)) -> Self {
-        BasicMemory {
+        SingleSchemeMemory {
             cell_size,
             rows,
             tree: ByteSegmentTree::new(rows),
@@ -74,7 +44,7 @@ impl BasicMemory {
     }
 }
 
-impl Memory for BasicMemory {
+impl Memory for SingleSchemeMemory {
     fn capacity(&self) -> usize {
         self.cell_size * self.rows
     }
@@ -83,7 +53,7 @@ impl Memory for BasicMemory {
         self.cell_size
     }
 
-    fn mem_alloc(&mut self, elems: Vec<u8>) -> Result<usize> {
+    fn mem_alloc(&mut self, elems: Vec<u8>) -> std::result::Result<usize, OutOfBoundsError> {
         if elems.len() < self.rows {
             let updated: usize = self.tree.update_from(elems, 0);
             Ok(updated * self.cell_size)
@@ -97,16 +67,29 @@ impl Memory for BasicMemory {
     }
 }
 
-impl PartitionedMemory {
-    pub fn new(memory: BasicMemory) -> Self {
-        PartitionedMemory {
+// Represents memory with an additional abstraction of partitioning.
+// Can reason about memory in terms of bins.
+#[derive(Debug)]
+pub struct FixedPartitionMemory {
+    memory: SingleSchemeMemory,
+    pub bin_count: usize,
+    spread_factor: MemCustomizer,
+}
+
+impl FixedPartitionMemory {
+    pub fn new(memory: SingleSchemeMemory) -> Self {
+        FixedPartitionMemory {
             memory,
             bin_count: 1,
             spread_factor: MemCustomizer::DistributeBinsEvenly,
         }
     }
 
-    pub fn allocate_bins(&mut self, num: usize, spread_factor: MemCustomizer) -> Result<()> {
+    pub fn allocate_bins(
+        &mut self,
+        num: usize,
+        spread_factor: MemCustomizer,
+    ) -> std::result::Result<(), OutOfBoundsError> {
         if num >= self.memory.rows {
             return Err(OutOfBoundsError);
         }
@@ -139,7 +122,7 @@ impl PartitionedMemory {
     }
 }
 
-impl Memory for PartitionedMemory {
+impl Memory for FixedPartitionMemory {
     fn capacity(&self) -> usize {
         self.memory.capacity()
     }
@@ -148,7 +131,7 @@ impl Memory for PartitionedMemory {
         self.memory.cell_size
     }
 
-    fn mem_alloc(&mut self, elems: Vec<u8>) -> Result<usize> {
+    fn mem_alloc(&mut self, elems: Vec<u8>) -> std::result::Result<usize, OutOfBoundsError> {
         self.memory.mem_alloc(elems)
     }
 
@@ -157,8 +140,20 @@ impl Memory for PartitionedMemory {
     }
 }
 
-impl CustomizeMemoryInit for MemCustomizer {
-    fn default_mem_capacity() -> (usize, usize) {
+#[derive(Debug)]
+pub struct Bin {
+    pub width: usize,
+    pub address: usize,
+}
+
+#[derive(Debug)]
+pub enum MemCustomizer {
+    DistributeBinsEvenly,
+    // DistributeBinsRandomly,
+}
+
+impl MemCustomizer {
+    pub fn default_mem_capacity() -> (usize, usize) {
         (8, 32)
     }
 }
