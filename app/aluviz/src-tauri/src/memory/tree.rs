@@ -2,6 +2,10 @@ use std::cmp::{max, min};
 
 use super::OutOfBoundsError;
 
+/// The main data structure that represents the memory model.
+///
+/// The idea is that the underlying structure of memory doesn't change, therefore most information
+/// about the model can be pre-calculated and stored for faster access and rendering.
 #[derive(Debug)]
 pub struct ByteSegmentTree {
     start: usize,
@@ -9,12 +13,18 @@ pub struct ByteSegmentTree {
     store: Vec<Block>,
 }
 
+/// Blocks represent a unit of memory independent of the byte.
+///
+/// In most simulation contexts, the block will represent a word.
 #[derive(Debug, Clone)]
 enum Block {
     Empty,
     Full(BlockMetadata),
 }
 
+/// While a block represents a unit of memory, it doesn't hold any data specific to the memory that
+/// it maps. Instead, the following struct stores the actual data that is contained within that
+/// memory segment.
 #[derive(Debug, Clone)]
 struct BlockMetadata {
     address: usize,
@@ -32,6 +42,13 @@ impl ByteSegmentTree {
         }
     }
 
+    /// Traverses down the tree and calculates the width of the given range l to r.
+    ///
+    /// v: root vertex
+    /// tl: the lower bound of the current range
+    /// tr: the upper bound of the current range
+    /// l: the lower bound of the range to calculate the width
+    /// r: the upper bound fo the range to calculate the width
     pub fn memsize(&self, v: usize, tl: usize, tr: usize, l: usize, r: usize) -> usize {
         if l > r {
             0
@@ -47,6 +64,9 @@ impl ByteSegmentTree {
         }
     }
 
+    /// Given a position in the array, the function first traverses down the tree to find the
+    /// positin. Then, it overwrites the contents of memory with each of the elements given to the
+    /// function.
     pub fn update_from(&mut self, elems: Vec<u8>, pos: usize) -> usize {
         let mut mem_changed: usize = 0;
         for (index, item) in elems.iter().enumerate() {
@@ -58,6 +78,9 @@ impl ByteSegmentTree {
         mem_changed
     }
 
+    /// The tree is ordered by the leaf nodes which are in the same position as in their original
+    /// array. This function uses binary search to retrieve the element in the current range given
+    /// by the position.
     pub fn get(&self, v: usize, tl: usize, tr: usize, pos: usize) -> u8 {
         if tl == tr {
             return match &self.store[v] {
@@ -73,6 +96,7 @@ impl ByteSegmentTree {
         }
     }
 
+    /// Private helper function to update a value in the tree.
     fn update(
         &mut self,
         v: usize,
@@ -81,7 +105,9 @@ impl ByteSegmentTree {
         pos: usize,
         val: u8,
     ) -> std::result::Result<usize, OutOfBoundsError> {
-        if pos > tr {
+        if pos > tr || pos < tl {
+            // If the given position is beyond the range tl to tr, the function throws an out of
+            // bounds error.
             return Err(OutOfBoundsError);
         }
         if tl == tr {
@@ -111,12 +137,14 @@ impl ByteSegmentTree {
         }
     }
 
+    /// Builds a segment tree with the given number of elements
     fn build_tree_from(cells: usize) -> Vec<Block> {
         let mut store: Vec<Block> = vec![Block::Empty; cells * 4];
         Self::build_tree_as_binheap(1, 0, cells - 1, &mut store);
         store
     }
 
+    /// The main function that creates the binary tree in memory.
     fn build_tree_as_binheap(v: usize, tl: usize, tr: usize, t: &mut Vec<Block>) {
         if tl == tr {
             t[v] = Self::make_block(&t[v], 8, tl, vec![0]);
@@ -128,6 +156,7 @@ impl ByteSegmentTree {
         }
     }
 
+    /// Function to initialize the tree with blocks
     fn make_block(b: &Block, cell_width: usize, address: usize, elements: Vec<u8>) -> Block {
         match b {
             Block::Empty => Block::Full(BlockMetadata {
@@ -139,6 +168,8 @@ impl ByteSegmentTree {
         }
     }
 
+    /// Since blocks don't have the + operator defined, this method defines how two blocks should
+    /// be combined for each parent node that pre-computes the width of the range.
     fn combine(b1: &Block, b2: &Block) -> Block {
         match (b1, b2) {
             (Block::Full(d1), Block::Full(d2)) => {
