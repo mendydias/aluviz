@@ -1,4 +1,8 @@
-use std::{fs::File, sync::Once};
+use std::{
+    fs::{self, File},
+    path::Path,
+    sync::Once,
+};
 
 use log::LevelFilter;
 use simplelog::{Config, WriteLogger};
@@ -20,10 +24,16 @@ fn setup_partitioned_memory(basic_mem: SingleSchemeMemory) -> FixedPartitionMemo
 
 fn init_log() {
     INIT_LOGGER_ONCE.call_once(|| {
+        let path = "./logs";
+        let path = Path::new(path);
+        if !path.is_dir() {
+            fs::create_dir(path).expect("cannot create log folder");
+        }
         WriteLogger::init(
             LevelFilter::Debug,
             Config::default(),
-            File::create("./logs/tests.log").unwrap(),
+            File::create("./logs/tests.log").unwrap(), // TODO: test if the log
+                                                       // folder exists and if not create the log folder and the log file.
         )
         .unwrap();
     });

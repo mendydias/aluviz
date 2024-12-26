@@ -1,3 +1,4 @@
+mod errors;
 mod tree;
 
 use std::fmt::Display;
