@@ -14,17 +14,18 @@ fn test_memory_init() {
 }
 
 #[test]
-fn test_memory_bin_setup() {
+fn test_memory_bin_setup() -> Result<(), OutOfBoundsError> {
     init_log();
     let mem = setup_basic_mem();
     let mut mem = FixedPartitionMemory::new(mem);
     let bin_count = 4;
     let bin_width = 64;
-    mem.allocate_bins(4, MemCustomizer::DistributeBinsEvenly);
+    let result = mem.allocate_bins(4, MemCustomizer::DistributeBinsEvenly);
     // test bin count
     assert_eq!(mem.bin_count, bin_count);
     // test bin interval capacity
     assert_eq!(mem.get_bin_width(), bin_width);
+    result
 }
 
 #[test]
