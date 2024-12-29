@@ -1,3 +1,5 @@
+//! An implementation of a segment tree, which represents virtual memory.
+
 use std::cmp::{max, min};
 
 use super::OutOfBoundsError;
@@ -13,13 +15,21 @@ pub struct ByteSegmentTree {
     store: Vec<Block>,
 }
 
-/// Blocks represent a unit of memory independent of the byte.
+/// Blocks represent a unit of memory independent of the byte, e.g. spanning from one byte to
+/// several.
 ///
 /// In most simulation contexts, the block will represent a word.
 #[derive(Debug, Clone)]
 enum Block {
     Empty,
     Full(BlockMetadata),
+}
+
+/// Wrapper around a byte. Makes it easier to represent free and allocatd memory.
+#[derive(Debug)]
+enum MemoryCell {
+    Free,
+    Allocated(u8),
 }
 
 /// While a block represents a unit of memory, it doesn't hold any data specific to the memory that
@@ -93,6 +103,14 @@ impl ByteSegmentTree {
             self.get(v * 2, tl, tm, pos)
         } else {
             self.get(v * 2 + 1, tm + 1, tr, pos)
+        }
+    }
+
+    /// This function retrieves an immutable reference to the root node of the currenttree
+    pub fn get_root(&self) -> Option<(usize, usize, &Vec<u8>)> {
+        match &self.store[1] {
+            Block::Empty => Option::None,
+            Block::Full(d) => Option::Some((d.width, d.address, &d.contents)),
         }
     }
 

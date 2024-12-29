@@ -1,3 +1,5 @@
+//! This module defines all memory structures and their behavior
+
 mod errors;
 mod tree;
 
@@ -42,6 +44,9 @@ pub trait Memory {
 
     /// Retrieves the byte at the given location.
     fn loc(&self, pos: usize) -> u8;
+
+    /// Retrieves the entire memory data structure as it is currently in memory
+    fn get_memory(&self) -> &Vec<u8>;
 }
 
 /// Represent single user memory schema. This means that memory is one continguous blob and its
@@ -83,6 +88,14 @@ impl Memory for SingleSchemeMemory {
 
     fn loc(&self, pos: usize) -> u8 {
         self.tree.get(1, 0, self.rows - 1, pos)
+    }
+
+    fn get_memory(&self) -> &Vec<u8> {
+        let (width, address, ref contents) = self
+            .tree
+            .get_root()
+            .expect("Trying to access empty root node of tree");
+        contents
     }
 }
 
@@ -164,6 +177,10 @@ impl Memory for FixedPartitionMemory {
 
     fn loc(&self, pos: usize) -> u8 {
         self.memory.loc(pos)
+    }
+
+    fn get_memory(&self) -> &Vec<u8> {
+        self.memory.get_memory()
     }
 }
 
