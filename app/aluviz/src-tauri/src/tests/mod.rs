@@ -5,36 +5,57 @@ use std::{
 };
 
 use log::LevelFilter;
-use simplelog::{Config, WriteLogger};
+use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
 
-use crate::memory::{FixedPartitionMemory, MemCustomizer, SingleSchemeMemory};
-
-#[cfg(test)]
-mod fixed_and_single_partition_memory_tests;
+use crate::{
+    managers::{AllocationPolicy, MemoryManager},
+    memory::Memory,
+};
+use crate::{
+    memory::{FixedPartitionMemory, MemCustomizer, SingleSchemeMemory},
+    processors::{Pipeline, Processor, ProcessorCore},
+};
 
 static INIT_LOGGER_ONCE: Once = Once::new();
 
-fn setup_basic_mem() -> SingleSchemeMemory {
+fn setup_single_scheme_mem() -> SingleSchemeMemory {
     SingleSchemeMemory::new(MemCustomizer::default_mem_capacity())
 }
 
-fn setup_partitioned_memory(basic_mem: SingleSchemeMemory) -> FixedPartitionMemory {
-    FixedPartitionMemory::new(basic_mem)
-}
-
 fn init_log() {
+    // We set up logger for this once and if for some reason, I call set_logger elsewhere, it will
+    // just ignore setting up this logger instance.
     INIT_LOGGER_ONCE.call_once(|| {
-        let path = "./logs";
-        let path = Path::new(path);
-        if !path.is_dir() {
-            fs::create_dir(path).expect("cannot create log folder");
-        }
-        WriteLogger::init(
+        TermLogger::init(
             LevelFilter::Debug,
             Config::default(),
-            File::create("./logs/tests.log").unwrap(), // TODO: test if the log
-                                                       // folder exists and if not create the log folder and the log file.
+            TerminalMode::Mixed,
+            ColorChoice::Auto,
         )
         .unwrap();
     });
 }
+
+fn setup_memory_manager(
+    memory: impl Memory + 'static,
+    alloc_policy: AllocationPolicy,
+) -> MemoryManager {
+    MemoryManager::new(memory, alloc_policy)
+}
+
+fn setup_basic_inout_processor(core_setup: ProcessorCore, exec_pipeline: Pipeline) -> Processor {
+    Processor::new(core_setup, exec_pipeline)
+}
+
+fn setup_basic_first_fit_components() -> (MemoryManager, Processor) {
+    let mem = setup_single_scheme_mem();
+    let manager = setup_memory_manager(mem, AllocationPolicy::FirstFit);
+    let processor = setup_basic_inout_processor(
+        ProcessorCore::SingleUnitSingleThreaded,
+        Pipeline::SingleSequential,
+    );
+    (manager, processor)
+}
+
+mod fixed_and_single_partition_memory_tests;
+mod memory_allocation_algorithm_tests;

@@ -1,13 +1,13 @@
 #[cfg(test)]
 use crate::{
     memory::{FixedPartitionMemory, MemCustomizer, Memory, OutOfBoundsError},
-    tests::{init_log, setup_basic_mem},
+    tests::{init_log, setup_single_scheme_mem},
 };
 
 #[test]
 fn test_memory_init() {
     init_log();
-    let mem = setup_basic_mem();
+    let mem = setup_single_scheme_mem();
     let mem = FixedPartitionMemory::new(mem);
     let default_cap: usize = 32 * 8;
     assert_eq!(mem.capacity(), default_cap);
@@ -16,7 +16,7 @@ fn test_memory_init() {
 #[test]
 fn test_memory_bin_setup() -> Result<(), OutOfBoundsError> {
     init_log();
-    let mem = setup_basic_mem();
+    let mem = setup_single_scheme_mem();
     let mut mem = FixedPartitionMemory::new(mem);
     let bin_count = 4;
     let bin_width = 64;
@@ -31,7 +31,7 @@ fn test_memory_bin_setup() -> Result<(), OutOfBoundsError> {
 #[test]
 fn test_get_bins() -> Result<(), OutOfBoundsError> {
     init_log();
-    let mem = setup_basic_mem();
+    let mem = setup_single_scheme_mem();
     let mut mem = FixedPartitionMemory::new(mem);
     let bin_count = 4;
     let bin_width = 64;
@@ -48,7 +48,7 @@ fn test_get_bins() -> Result<(), OutOfBoundsError> {
 #[test]
 fn test_allocate_cells_default() {
     init_log();
-    let mem = setup_basic_mem();
+    let mem = setup_single_scheme_mem();
     let value: u8 = 10;
     // test if mem_alloc is successful
     let mut mem = FixedPartitionMemory::new(mem);
@@ -62,7 +62,7 @@ fn test_allocate_cells_default() {
 #[test]
 fn test_default_bin_allocation() {
     init_log();
-    let mem = setup_basic_mem();
+    let mem = setup_single_scheme_mem();
     let mem = FixedPartitionMemory::new(mem);
     let alloc_address = 0;
     let alloc_width = mem.capacity();
@@ -75,7 +75,7 @@ fn test_default_bin_allocation() {
 #[test]
 fn test_allocate_more_bins_than_rows() -> Result<(), OutOfBoundsError> {
     init_log();
-    let mem = setup_basic_mem();
+    let mem = setup_single_scheme_mem();
     let mut mem = FixedPartitionMemory::new(mem);
     let result = mem.allocate_bins(40, MemCustomizer::DistributeBinsEvenly);
     if result.is_ok() {
