@@ -1,7 +1,7 @@
 use super::setup_basic_first_fit_components;
 use crate::{
     processors::{Job, JobQueue},
-    simulators::{FrameRate, Lifetime, Simulation},
+    simulators::{FrameRate, Lifetime, Simulation, Simulator},
 };
 
 #[test]
