@@ -25,12 +25,7 @@ enum Block {
     Full(BlockMetadata),
 }
 
-/// Wrapper around a byte. Makes it easier to represent free and allocatd memory.
-#[derive(Debug)]
-enum MemoryCell {
-    Free,
-    Allocated(u8),
-}
+type MemoryCell = Option<u8>;
 
 /// While a block represents a unit of memory, it doesn't hold any data specific to the memory that
 /// it maps. Instead, the following struct stores the actual data that is contained within that
@@ -39,7 +34,8 @@ enum MemoryCell {
 struct BlockMetadata {
     address: usize,
     width: usize,
-    contents: Vec<u8>,
+    free: bool,
+    contents: Vec<MemoryCell>,
 }
 
 impl ByteSegmentTree {
@@ -94,7 +90,7 @@ impl ByteSegmentTree {
     pub fn get(&self, v: usize, tl: usize, tr: usize, pos: usize) -> u8 {
         if tl == tr {
             return match &self.store[v] {
-                Block::Full(d) => d.contents[0],
+                Block::Full(d) => d.contents[0].unwrap_or(0),
                 Block::Empty => 0,
             };
         }
@@ -107,14 +103,20 @@ impl ByteSegmentTree {
     }
 
     /// This function retrieves an immutable reference to the root node of the currenttree
-    pub fn get_root(&self) -> Option<(usize, usize, &Vec<u8>)> {
+    pub fn get_root(&self) -> Option<(usize, usize, Vec<u8>)> {
         match &self.store[1] {
             Block::Empty => Option::None,
-            Block::Full(d) => Option::Some((d.width, d.address, &d.contents)),
+            Block::Full(d) => Option::Some((
+                d.width,
+                d.address,
+                d.contents.iter().map(|cell| cell.unwrap_or(0)).collect(),
+            )),
         }
     }
 
     /// Private helper function to update a value in the tree.
+    /// Here pos and address are the same. Imagine the memory layout to be an array of bytes. Each
+    /// pos and address refer to an index here.
     fn update(
         &mut self,
         v: usize,
@@ -133,12 +135,14 @@ impl ByteSegmentTree {
                 Block::Full(d) => BlockMetadata {
                     width: d.width,
                     address: d.address,
-                    contents: vec![val],
+                    contents: vec![MemoryCell::Some(val)],
+                    free: false,
                 },
                 Block::Empty => BlockMetadata {
                     width: 8,
                     address: tl,
-                    contents: vec![val],
+                    contents: vec![MemoryCell::Some(val)],
+                    free: false,
                 },
             };
             self.store[v] = Block::Full(new_block);
@@ -162,10 +166,11 @@ impl ByteSegmentTree {
         store
     }
 
-    /// The main function that creates the binary tree in memory.
+    /// The main function that creates the binary tree in memory. This is only run once, when
+    /// memory is initialized.
     fn build_tree_as_binheap(v: usize, tl: usize, tr: usize, t: &mut Vec<Block>) {
         if tl == tr {
-            t[v] = Self::make_block(&t[v], 8, tl, vec![0]);
+            t[v] = Self::make_block(&t[v], 8, tl, vec![MemoryCell::None]);
         } else {
             let tm = (tl + tr) / 2;
             Self::build_tree_as_binheap(v * 2, tl, tm, t);
@@ -175,12 +180,18 @@ impl ByteSegmentTree {
     }
 
     /// Function to initialize the tree with blocks
-    fn make_block(b: &Block, cell_width: usize, address: usize, elements: Vec<u8>) -> Block {
+    fn make_block(
+        b: &Block,
+        cell_width: usize,
+        address: usize,
+        elements: Vec<MemoryCell>,
+    ) -> Block {
         match b {
             Block::Empty => Block::Full(BlockMetadata {
                 address,
                 width: cell_width,
                 contents: elements,
+                free: true,
             }),
             _ => panic!("Cannot overwrite full block."),
         }
@@ -191,7 +202,7 @@ impl ByteSegmentTree {
     fn combine(b1: &Block, b2: &Block) -> Block {
         match (b1, b2) {
             (Block::Full(d1), Block::Full(d2)) => {
-                let mut contents: Vec<u8> = Vec::new();
+                let mut contents: Vec<MemoryCell> = Vec::new();
                 for v in d1.contents.iter() {
                     contents.push(v.to_owned());
                 }
@@ -203,6 +214,7 @@ impl ByteSegmentTree {
                     address: d1.address,
                     width: d1.width + d2.width,
                     contents,
+                    free: d1.free && d2.free,
                 })
             }
             _ => panic!("Cannot combine empty blocks."),
