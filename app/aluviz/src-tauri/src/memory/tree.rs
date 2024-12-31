@@ -35,6 +35,7 @@ struct BlockMetadata {
     address: usize,
     width: usize,
     free: bool,
+    dirty: bool,
     contents: Vec<MemoryCell>,
 }
 
@@ -70,9 +71,36 @@ impl ByteSegmentTree {
         }
     }
 
+    /// The following function returns the following information about a range of blocks:
+    ///     - what is the width of the block?
+    ///     - is the block allocated or free?
+    pub fn get_mem_cell_state(
+        &self,
+        v: usize,  // Current root index
+        tl: usize, // Left-most index of current sub-tree
+        tr: usize, // Right-most index of current sub-tree
+        l: usize,  // Starting index of range
+        r: usize,  // Ending index of range
+    ) -> (usize, bool) {
+        if l > r || tl > tr {
+            (0, false)
+        } else if tl == l && tr == r {
+            match &self.store[v] {
+                Block::Empty => (0, false),
+                Block::Full(d) => (d.width, d.free),
+            }
+        } else {
+            let tm = (tl + tr) / 2;
+            let left_child = self.get_mem_cell_state(v * 2, tl, tm, l, min(r, tm));
+            let right_child = self.get_mem_cell_state(v * 2 + 1, tm + 1, tr, max(l, tm + 1), r);
+            (left_child.0 + right_child.0, left_child.1 && right_child.1)
+        }
+    }
+
     /// Given a position in the array, the function first traverses down the tree to find the
-    /// positin. Then, it overwrites the contents of memory with each of the elements given to the
+    /// position. Then, it overwrites the contents of memory with each of the elements given to the
     /// function.
+    /// TODO: Change this method to exclusively handle single value updates
     pub fn update_from(&mut self, elems: Vec<u8>, pos: usize) -> usize {
         let mut mem_changed: usize = 0;
         for (index, item) in elems.iter().enumerate() {
@@ -102,7 +130,7 @@ impl ByteSegmentTree {
         }
     }
 
-    /// This function retrieves an immutable reference to the root node of the currenttree
+    /// This function retrieves an immutable reference to the root node of the current tree.
     pub fn get_root(&self) -> Option<(usize, usize, Vec<u8>)> {
         match &self.store[1] {
             Block::Empty => Option::None,
@@ -137,12 +165,14 @@ impl ByteSegmentTree {
                     address: d.address,
                     contents: vec![MemoryCell::Some(val)],
                     free: false,
+                    dirty: false,
                 },
                 Block::Empty => BlockMetadata {
                     width: 8,
                     address: tl,
                     contents: vec![MemoryCell::Some(val)],
                     free: false,
+                    dirty: false,
                 },
             };
             self.store[v] = Block::Full(new_block);
@@ -192,6 +222,7 @@ impl ByteSegmentTree {
                 width: cell_width,
                 contents: elements,
                 free: true,
+                dirty: false,
             }),
             _ => panic!("Cannot overwrite full block."),
         }
@@ -215,9 +246,66 @@ impl ByteSegmentTree {
                     width: d1.width + d2.width,
                     contents,
                     free: d1.free && d2.free,
+                    dirty: false,
                 })
             }
             _ => panic!("Cannot combine empty blocks."),
+        }
+    }
+
+    /// Allocates memory over a range of addresses using the given array of elements.
+    pub fn allocate_over_range(
+        &mut self,
+        elems: &Vec<u8>, // Elements to add
+        v: usize,        // Current root index
+        tl: usize,       // Left-most index of sub-tree
+        tr: usize,       // Right-most index of sub-tree
+        l: usize,        // Starting index of memory range
+        r: usize,        // Ending index of memory range
+    ) {
+        if l > r {
+            return;
+        } else if tl == l && tr == r {
+            if let Block::Full(d) = &mut self.store[v] {
+                d.contents = elems
+                    .iter()
+                    .map(|item| MemoryCell::Some(item.clone()))
+                    .collect();
+                d.dirty = true;
+            }
+        } else {
+            self.push(v);
+            let tm = (tl + tr) / 2;
+            self.allocate_over_range(elems, v * 2, tl, tm, l, min(r, tm));
+            self.allocate_over_range(elems, v * 2 + 1, tm + 1, tr, max(tm + 1, l), r);
+        }
+    }
+
+    /// Helper function to propagate changes down the sub-tree.
+    fn push(&mut self, index: usize) {
+        let contents = match &mut self.store[index] {
+            Block::Empty => panic!("Cannot push lazy operations down an empty node"),
+            Block::Full(d) => {
+                let is_dirty = d.dirty;
+                d.dirty = false;
+                (is_dirty, &d.contents)
+            }
+        };
+        // If the contents are dirty, then push the operation down to the children.
+        if contents.0 {
+            let tm = contents.1.len() / 2;
+            let left_child_contents = contents.1[..tm].to_vec();
+            let right_child_contents = contents.1[tm + 1..].to_vec();
+            // FIX: The following two calls might fail if they are uninitialized (a.k.a Empty).
+            // Consider adding an escape `else` clause to handle the Block::Empty case.
+            if let Block::Full(l) = &mut self.store[index * 2] {
+                l.dirty = true;
+                l.contents = left_child_contents;
+            }
+            if let Block::Full(r) = &mut self.store[index * 2 + 1] {
+                r.dirty = true;
+                r.contents = right_child_contents;
+            }
         }
     }
 }

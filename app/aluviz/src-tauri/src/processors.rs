@@ -25,29 +25,3 @@ impl Processor {
         }
     }
 }
-
-pub struct Job {
-    arrival: usize,
-    burst: usize,
-    size: usize,
-}
-
-impl Job {
-    pub fn new(size: usize, burst: usize, arrival: usize) -> Self {
-        Job {
-            size,
-            burst,
-            arrival,
-        }
-    }
-}
-
-pub struct JobQueue {
-    jobs: Vec<Job>,
-}
-
-impl JobQueue {
-    pub fn init_from(jobs: Vec<Job>) -> Self {
-        JobQueue { jobs }
-    }
-}

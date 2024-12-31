@@ -1,19 +1,13 @@
 use crate::{
-    managers::MemoryManager,
-    processors::{ClockSpeed, JobQueue, Processor},
+    managers::{JobQueue, MemoryManager, MemorySnapshot},
+    processors::Processor,
 };
-
-pub enum FrameRate {
-    None,
-}
 
 pub enum Lifetime {
     Specific(u32),
 }
 
 pub struct Simulation {
-    framerate: FrameRate,
-    lifetime: Lifetime,
     memory_manager: MemoryManager,
     processor: Processor,
     job_queue: JobQueue,
@@ -21,19 +15,8 @@ pub struct Simulation {
 }
 
 impl Simulation {
-    pub fn new(
-        framerate: FrameRate,
-        lifetime: Lifetime,
-        memory_manager: MemoryManager,
-        processor: Processor,
-        job_queue: JobQueue,
-    ) -> Self {
-        match framerate {
-            FrameRate::None => processor.clockspeed = ClockSpeed::None,
-        }
+    pub fn new(memory_manager: MemoryManager, processor: Processor, job_queue: JobQueue) -> Self {
         Simulation {
-            framerate,
-            lifetime,
             memory_manager,
             processor,
             job_queue,

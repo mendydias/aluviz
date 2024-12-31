@@ -3,23 +3,9 @@
 mod errors;
 mod tree;
 
-use std::fmt::Display;
+use errors::{OutOfBoundsError, SimulatedMemoryResult};
 
 use crate::memory::tree::ByteSegmentTree;
-
-/// OutOfBoundsError represents the cases where the user tries to allocate memory or configure bins
-/// such that the configured memory exceeds the total memory.
-#[derive(Debug, Clone)]
-pub struct OutOfBoundsError;
-
-impl Display for OutOfBoundsError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Request memory range is out of bounds for the simulation."
-        )
-    }
-}
 
 /// This interface defines all the operations possible on a memory model data type.
 ///
@@ -46,11 +32,14 @@ pub trait Memory {
     fn loc(&self, pos: usize) -> u8;
 
     /// Retrieves the entire memory data structure as it is currently in memory
-    fn get_memory(&self) -> &Vec<u8>;
+    fn get_memory(&self) -> Vec<u8>;
+
+    /// Lazily allocates over a block or a range of blocks
+    fn range_alloc(&mut self, elems: Vec<u8>, l: usize) -> SimulatedMemoryResult<usize>;
 }
 
 /// Represent single user memory schema. This means that memory is one continguous blob and its
-/// addresses starts from 0.
+/// address always starts from 0.
 #[derive(Debug)]
 pub struct SingleSchemeMemory {
     pub cell_size: usize,
@@ -90,12 +79,22 @@ impl Memory for SingleSchemeMemory {
         self.tree.get(1, 0, self.rows - 1, pos)
     }
 
-    fn get_memory(&self) -> &Vec<u8> {
-        let (width, address, ref contents) = self
+    fn get_memory(&self) -> Vec<u8> {
+        let (_, _, contents) = self
             .tree
             .get_root()
             .expect("Trying to access empty root node of tree");
         contents
+    }
+
+    fn range_alloc(&mut self, elems: Vec<u8>, l: usize) -> SimulatedMemoryResult<usize> {
+        let data_size = elems.len();
+        if data_size >= self.rows {
+            return SimulatedMemoryResult::Err(OutOfBoundsError);
+        }
+        self.tree
+            .allocate_over_range(&elems, 1, 0, self.rows - 1, l, data_size - 1);
+        Ok(data_size)
     }
 }
 
@@ -105,6 +104,7 @@ impl Memory for SingleSchemeMemory {
 pub struct FixedPartitionMemory {
     memory: SingleSchemeMemory,
     pub bin_count: usize,
+    bins: Vec<BinMetadata>,
     spread_factor: MemCustomizer,
 }
 
@@ -113,6 +113,7 @@ impl FixedPartitionMemory {
         FixedPartitionMemory {
             memory,
             bin_count: 1,
+            bins: Vec::new(),
             spread_factor: MemCustomizer::DistributeBinsEvenly,
         }
     }
@@ -133,6 +134,7 @@ impl FixedPartitionMemory {
         }
         self.bin_count = num;
         self.spread_factor = spread_factor;
+        self.update_bins();
         Ok(())
     }
 
@@ -141,9 +143,18 @@ impl FixedPartitionMemory {
         self.memory.rows / self.bin_count * self.memory.cell_size
     }
 
+    pub fn get_rows_per_bin(&self) -> usize {
+        self.memory.rows / self.bin_count
+    }
+
     /// Returns metadata about each individual bin
-    pub fn get_bins(&self) -> Vec<BinMetadata> {
-        match self.spread_factor {
+    pub fn get_bins(&self) -> &Vec<BinMetadata> {
+        &self.bins
+    }
+
+    /// Private helper function that updates bin metadata.
+    fn update_bins(&mut self) {
+        self.bins = match self.spread_factor {
             MemCustomizer::DistributeBinsEvenly => {
                 let mut bins: Vec<BinMetadata> = Vec::new();
                 let b_width = self.memory.rows / self.bin_count;
@@ -152,13 +163,20 @@ impl FixedPartitionMemory {
                     let address = i * b_width;
                     let l = start;
                     let r = start + b_width - 1;
-                    let width = self.memory.tree.memsize(1, 0, self.memory.rows - 1, l, r);
-                    bins.push(BinMetadata { address, width });
+                    let (width, free) =
+                        self.memory
+                            .tree
+                            .get_mem_cell_state(1, 0, self.memory.rows - 1, l, r);
+                    bins.push(BinMetadata {
+                        address,
+                        width,
+                        free,
+                    });
                     start += b_width;
                 }
                 bins
             }
-        }
+        };
     }
 }
 
@@ -179,8 +197,25 @@ impl Memory for FixedPartitionMemory {
         self.memory.loc(pos)
     }
 
-    fn get_memory(&self) -> &Vec<u8> {
+    fn get_memory(&self) -> Vec<u8> {
         self.memory.get_memory()
+    }
+
+    fn range_alloc(&mut self, elems: Vec<u8>, l: usize) -> SimulatedMemoryResult<usize> {
+        let width = elems.len();
+        let bin_width = self.get_rows_per_bin();
+        if width >= bin_width {
+            return SimulatedMemoryResult::Err(OutOfBoundsError);
+        }
+        self.memory.tree.allocate_over_range(
+            &elems,
+            1,
+            0,
+            self.memory.rows - 1,
+            l,
+            l + bin_width - 1,
+        );
+        Ok(l)
     }
 }
 
@@ -190,6 +225,7 @@ impl Memory for FixedPartitionMemory {
 pub struct BinMetadata {
     pub width: usize,
     pub address: usize,
+    pub free: bool,
 }
 
 /// This configuration setting is used to determine how the bins are distributed over the entirety

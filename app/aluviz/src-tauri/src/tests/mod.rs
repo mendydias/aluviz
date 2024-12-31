@@ -1,20 +1,16 @@
-use std::{
-    fs::{self, File},
-    path::Path,
-    sync::Once,
-};
+use std::sync::Once;
 
 use log::LevelFilter;
 use simplelog::{ColorChoice, Config, TermLogger, TerminalMode};
 
 use crate::{
     managers::{AllocationPolicy, MemoryManager},
-    memory::Memory,
+    memory::{MemCustomizer, Memory, SingleSchemeMemory},
+    processors::{ClockSpeed, Pipeline, Processor, ProcessorCore},
 };
-use crate::{
-    memory::{FixedPartitionMemory, MemCustomizer, SingleSchemeMemory},
-    processors::{Pipeline, Processor, ProcessorCore},
-};
+
+mod fixed_and_single_partition_memory_tests;
+mod memory_allocation_algorithm_tests;
 
 static INIT_LOGGER_ONCE: Once = Once::new();
 
@@ -44,7 +40,7 @@ fn setup_memory_manager(
 }
 
 fn setup_basic_inout_processor(core_setup: ProcessorCore, exec_pipeline: Pipeline) -> Processor {
-    Processor::new(core_setup, exec_pipeline)
+    Processor::new(core_setup, exec_pipeline, ClockSpeed::None)
 }
 
 fn setup_basic_first_fit_components() -> (MemoryManager, Processor) {
@@ -56,6 +52,3 @@ fn setup_basic_first_fit_components() -> (MemoryManager, Processor) {
     );
     (manager, processor)
 }
-
-mod fixed_and_single_partition_memory_tests;
-mod memory_allocation_algorithm_tests;

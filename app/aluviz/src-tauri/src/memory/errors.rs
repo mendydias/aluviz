@@ -1,6 +1,6 @@
 use std::{error::Error, fmt::Display};
 
-type SimulatedMemoryResult<T> = std::result::Result<T, OutOfBoundsError>;
+pub type SimulatedMemoryResult<T> = std::result::Result<T, OutOfBoundsError>;
 
 #[derive(Debug, Clone)]
 pub struct OutOfBoundsError;
