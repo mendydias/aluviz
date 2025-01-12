@@ -27,8 +27,8 @@ impl Simulation {
 
 pub struct Frame {
     memory_snapshot: MemorySnapshot,
-    completed: JobQueue,
-    waiting: JobQueue,
+    completed: &JobQueue,
+    waiting: &JobQueue,
     unallocated_jobs: JobQueue,
 }
 

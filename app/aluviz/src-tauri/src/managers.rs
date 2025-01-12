@@ -1,5 +1,24 @@
 use crate::memory::{self, Memory};
 
+pub struct Job {
+    arrival: usize,
+    burst: usize,
+    size: usize,
+}
+
+impl Job {
+    pub fn new(size: usize, burst: usize, arrival: usize) -> Self {
+        Job {
+            size,
+            burst,
+            arrival,
+        }
+    }
+}
+
+// Represents a queue of jobs that can be fed into a execution pipeline.
+pub type JobQueue = Vec<Job>;
+
 pub enum AllocationPolicy {
     FirstFit,
 }
@@ -33,41 +52,19 @@ impl MemoryManager {
 
     pub fn load_memory(&self, job_queue: JobQueue) {
         // Take each job in the queue and load it into memory.
-        // If there is no more free memory, we add it to the waitign jobs list
-        for 
+        // If there is no more free memory, we add it to the waiting jobs list
+        for job in job_queue {
+            // Check if the next job fits in the next available memory slot
+            // TODO: maintain a list of free space pointers or one single pointer to the next free
+            // bin.
+        }
+    }
+
+    pub fn get_completed_jobs(&self) -> &JobQueue {
+        &self.completed_jobs
     }
 }
 
 pub struct MemorySnapshot {
     current_memory: Vec<u8>,
-}
-
-pub struct Job {
-    arrival: usize,
-    burst: usize,
-    size: usize,
-}
-
-impl Job {
-    pub fn new(size: usize, burst: usize, arrival: usize) -> Self {
-        Job {
-            size,
-            burst,
-            arrival,
-        }
-    }
-}
-
-pub struct JobQueue {
-    pub jobs: Vec<Job>,
-}
-
-impl JobQueue {
-    pub fn init_from(jobs: Vec<Job>) -> Self {
-        JobQueue { jobs }
-    }
-
-    pub fn new() -> Self {
-        JobQueue { jobs: Vec::new() }
-    }
 }

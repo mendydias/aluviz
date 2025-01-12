@@ -10,7 +10,7 @@ fn test_first_fit_single_scheme() {
     // define some jobs for the simulation
     let job1 = Job::new(32, 4, 0);
     let job2 = Job::new(12, 10, 0);
-    let job_queue = JobQueue::init_from(vec![job1, job2]);
+    let job_queue = vec![job1, job2];
     let simulator = Simulation::new(manager, processor, job_queue);
     let final_frame = simulator.play_to_end();
 
